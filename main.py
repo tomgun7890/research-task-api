@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import sqlite3
 
 class TaskCreate(BaseModel):
     title: str
@@ -11,20 +12,6 @@ class TaskUpdate(BaseModel):
 
 app = FastAPI()
 
-data = [
-    {
-        "id": 1,
-        "title": "Read paper",
-        "status": "todo"
-    },
-    {
-        "id": 2,
-        "title": "Run experiment",
-        "status": "done"
-    }
-]
-
-
 @app.get("/")
 def root():
     return {"message": "Hello"}
@@ -35,53 +22,141 @@ def health_check():
 
 @app.get("/tasks/{task_id}")
 def get_task(task_id: int):
-    for task in data:
-        if task["id"] == task_id:
-            return task
-        
-    raise HTTPException(status_code=404, detail="Task not found")
+    connection = sqlite3.connect("tasks.db")
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT * FROM tasks WHERE id = ?",
+        (task_id,)
+    )
+
+    row = cursor.fetchone()
+
+    connection.close()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    return {
+        "id": row[0],
+        "title": row[1],
+        "status": row[2]
+    }
 
 @app.post("/tasks")
 def create_task(task: TaskCreate):
-    added_data = {
-        "id": data[-1]["id"] + 1,
+    connection = sqlite3.connect("tasks.db")
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "INSERT INTO tasks (title, status) VALUES (?, ?)",
+        (task.title, task.status)
+    )
+
+    new_id = cursor.lastrowid
+
+    connection.commit()
+    connection.close()
+
+    print("new data id:", new_id)
+
+    return {
+        "id": new_id,
         "title": task.title,
         "status": task.status
     }
 
-    data.append(added_data)
-
-    return added_data
-
 @app.get("/tasks")
 def get_all_tasks():
-    return data
+    connection = sqlite3.connect("tasks.db")
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT * FROM tasks")
+    rows = cursor.fetchall()
+
+    result = []
+    for row in rows:
+        task = {
+            "id": row[0],
+            "title": row[1],
+            "status": row[2]
+        }
+
+        result.append(task)
+
+    connection.close()
+
+    return result
 
 @app.patch("/tasks/{task_id}")
 def update_task(task_id: int, update: TaskUpdate):
-    
+
     if update.title is None and update.status is None:
         raise HTTPException(status_code=400, detail="Bad format")
     
-    for task in data:
-        if task["id"] == task_id:
-            need_update_data = task
-
-            if update.title is not None:
-                need_update_data["title"] = update.title
+    connection = sqlite3.connect("tasks.db")
+    cursor = connection.cursor()
     
-            if update.status is not None:
-                need_update_data["status"] = update.status
+    updated_count = 0
 
-            return need_update_data
-        
-    raise HTTPException(status_code=404, detail="Not found")
+    if update.title is not None:
+        cursor.execute(
+            "UPDATE tasks " \
+            "SET title = ? " \
+            "WHERE id = ?",
+            (update.title, task_id)
+        )
+    
+        updated_count += cursor.rowcount
+
+    if update.status is not None:
+        cursor.execute(
+            "UPDATE tasks " \
+            "SET status = ? " \
+            "WHERE id = ?",
+            (update.status, task_id)
+        )
+    
+        updated_count += cursor.rowcount
+
+    if updated_count == 0:
+        connection.close()
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    connection.commit()
+
+    cursor.execute(
+        "SELECT * FROM tasks WHERE id = ?",
+        (task_id,)
+    )
+
+    row = cursor.fetchone()
+
+    connection.close()
+
+    return {
+        "id": row[0],
+        "title": row[1],
+        "status": row[2]
+    }
 
 @app.delete("/tasks/{task_id}")
 def delete_task(task_id: int):
-    for task in data:
-        if task["id"] == task_id:
-            data.remove(task)
-            return {"message": "Task deleted"}
+    connection = sqlite3.connect("tasks.db")
+    cursor = connection.cursor()
 
-    raise HTTPException(status_code=404, detail="Task not found")
+    cursor.execute(
+        "DELETE FROM tasks WHERE id = ?",
+        (task_id,)
+    )
+
+    deleted_row = cursor.rowcount
+
+    if deleted_row == 0:
+        connection.close()
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    connection.commit()
+    connection.close()
+
+    return {"message": "Task deleted"}
