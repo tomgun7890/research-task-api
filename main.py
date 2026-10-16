@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import sqlite3
+from database import get_connection, row_to_task
 
 class TaskCreate(BaseModel):
     title: str
@@ -22,7 +22,7 @@ def health_check():
 
 @app.get("/tasks/{task_id}")
 def get_task(task_id: int):
-    connection = sqlite3.connect("tasks.db")
+    connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute(
@@ -37,15 +37,11 @@ def get_task(task_id: int):
     if row is None:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    return {
-        "id": row[0],
-        "title": row[1],
-        "status": row[2]
-    }
+    return row_to_task(row)
 
 @app.post("/tasks")
 def create_task(task: TaskCreate):
-    connection = sqlite3.connect("tasks.db")
+    connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute(
@@ -68,7 +64,7 @@ def create_task(task: TaskCreate):
 
 @app.get("/tasks")
 def get_all_tasks():
-    connection = sqlite3.connect("tasks.db")
+    connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute("SELECT * FROM tasks")
@@ -76,11 +72,7 @@ def get_all_tasks():
 
     result = []
     for row in rows:
-        task = {
-            "id": row[0],
-            "title": row[1],
-            "status": row[2]
-        }
+        task = row_to_task(row)
 
         result.append(task)
 
@@ -94,7 +86,7 @@ def update_task(task_id: int, update: TaskUpdate):
     if update.title is None and update.status is None:
         raise HTTPException(status_code=400, detail="Bad format")
     
-    connection = sqlite3.connect("tasks.db")
+    connection = get_connection()
     cursor = connection.cursor()
     
     updated_count = 0
@@ -134,15 +126,11 @@ def update_task(task_id: int, update: TaskUpdate):
 
     connection.close()
 
-    return {
-        "id": row[0],
-        "title": row[1],
-        "status": row[2]
-    }
+    return row_to_task(row)
 
 @app.delete("/tasks/{task_id}")
 def delete_task(task_id: int):
-    connection = sqlite3.connect("tasks.db")
+    connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute(

@@ -1,4 +1,17 @@
 import sqlite3
+
+def get_connection():
+    connection = sqlite3.connect("tasks.db")
+
+    return connection
+
+def row_to_task(row):
+    return {
+        "id": row[0],
+        "title": row[1],
+        "status": row[2]
+    }
+
 connection = sqlite3.connect("tasks.db")
 cursor = connection.cursor()
 
