@@ -1,7 +1,9 @@
 import sqlite3
 
+DB_PATH = "tasks.db"
+
 def get_connection():
-    connection = sqlite3.connect("tasks.db")
+    connection = sqlite3.connect(DB_PATH)
 
     return connection
 
