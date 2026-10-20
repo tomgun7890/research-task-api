@@ -1,5 +1,4 @@
-import sqlite3
-
+import psycopg
 import pytest
 import database
 
@@ -10,33 +9,25 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def setup_test_db(tmp_path, monkeypatch):
-    test_db = tmp_path / "test_tasks.db"
+def setup_test_db(monkeypatch):
+    monkeypatch.setenv("POSTGRES_HOST", "localhost")
+    monkeypatch.setenv("POSTGRES_PORT", "5432")
+    monkeypatch.setenv("POSTGRES_DB", "research_tasks_test")
+    monkeypatch.setenv("POSTGRES_USER", "research_user")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "research_password")
 
-    monkeypatch.setattr(
-        database,
-        "DB_PATH",
-        str(test_db)
-    )
-
-    connection = sqlite3.connect(test_db)
+    connection = database.get_postgres_connection()
     cursor = connection.cursor()
 
-    cursor.execute(
-        "CREATE TABLE tasks (" \
-        "id INTEGER PRIMARY KEY," \
-        "title TEXT NOT NULL," \
-        "status TEXT NOT NULL" \
-        ")"
-    )
+    cursor.execute("TRUNCATE TABLE tasks RESTART IDENTITY")
 
     cursor.execute(
-        "INSERT INTO tasks (title, status) VALUES (?, ?)",
+        "INSERT INTO tasks (title, status) VALUES (%s, %s)",
         ("Read paper", "todo")
     )
 
     cursor.execute(
-        "INSERT INTO tasks (title, status) VALUES (?, ?)",
+        "INSERT INTO tasks (title, status) VALUES (%s, %s)",
         ("Run experiment", "done")
     )
 

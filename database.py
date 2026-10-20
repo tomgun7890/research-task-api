@@ -1,11 +1,5 @@
-import sqlite3
-
-DB_PATH = "tasks.db"
-
-def get_connection():
-    connection = sqlite3.connect(DB_PATH)
-
-    return connection
+import os
+import psycopg
 
 def row_to_task(row):
     return {
@@ -14,47 +8,13 @@ def row_to_task(row):
         "status": row[2]
     }
 
-connection = sqlite3.connect("tasks.db")
-cursor = connection.cursor()
+def get_postgres_connection():
+    connection = psycopg.connect(
+        host=os.getenv("POSTGRES_HOST"),
+        port=os.getenv("POSTGRES_PORT"),
+        dbname=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD")
+    )
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY,
-    title TEXT NOT NULL,
-    status TEXT NOT NULL
-)
-""")
-
-'''
-cursor.execute(
-    "INSERT INTO tasks (title, status) VALUES (?, ?)",
-    ("Read paper", "todo")
-)
-
-cursor.execute(
-    "UPDATE tasks SET status = ? WHERE id = ?",
-    ("done", 2)
-)
-'''
-
-cursor.execute(
-    "DELETE FROM tasks WHERE id = ?",
-    (3,)
-)
-
-connection.commit()
-
-cursor.execute("SELECT * FROM tasks")
-
-rows = cursor.fetchall()
-print(rows)
-
-cursor.execute(
-    "SELECT * FROM tasks WHERE id = ?",
-    (2,)
-)
-
-row = cursor.fetchone()
-print(row)
-
-connection.close()
+    return connection
