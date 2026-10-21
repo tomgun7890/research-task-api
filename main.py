@@ -1,5 +1,3 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from database import row_to_task, get_postgres_connection
@@ -7,10 +5,12 @@ from database import row_to_task, get_postgres_connection
 class TaskCreate(BaseModel):
     title: str
     status: str
+    priority: str = "medium"
 
 class TaskUpdate(BaseModel):
     title: str | None = None
     status: str | None = None
+    priority: str | None = None
 
 app = FastAPI()
 
@@ -47,8 +47,8 @@ def create_task(task: TaskCreate):
     cursor = connection.cursor()
 
     cursor.execute(
-        "INSERT INTO tasks (title, status) VALUES (%s, %s) RETURNING id",
-        (task.title, task.status)
+        "INSERT INTO tasks (title, status, priority) VALUES (%s, %s, %s) RETURNING id",
+        (task.title, task.status, task.priority)
     )
 
     new_id = cursor.fetchone()[0]
@@ -61,7 +61,8 @@ def create_task(task: TaskCreate):
     return {
         "id": new_id,
         "title": task.title,
-        "status": task.status
+        "status": task.status,
+        "priority": task.priority
     }
 
 @app.get("/tasks")
@@ -85,7 +86,7 @@ def get_all_tasks():
 @app.patch("/tasks/{task_id}")
 def update_task(task_id: int, update: TaskUpdate):
 
-    if update.title is None and update.status is None:
+    if update.title is None and update.status is None and update.priority is None:
         raise HTTPException(status_code=400, detail="Bad format")
     
     connection = get_postgres_connection()
@@ -111,6 +112,16 @@ def update_task(task_id: int, update: TaskUpdate):
             (update.status, task_id)
         )
     
+        updated_count += cursor.rowcount
+
+    if update.priority is not None:
+        cursor.execute(
+            "UPDATE tasks " \
+            "SET priority = %s " \
+            "WHERE id = %s",
+            (update.priority, task_id)
+        )
+
         updated_count += cursor.rowcount
 
     if updated_count == 0:

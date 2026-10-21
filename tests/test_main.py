@@ -51,7 +51,8 @@ def test_create_task():
         "/tasks",
         json={
             "title": "Write paper",
-            "status": "todo"
+            "status": "todo",
+            "priority": "medium"
         }
     )
 
@@ -59,7 +60,8 @@ def test_create_task():
     assert response.json() == {
         "id": 3,
         "title": "Write paper",
-        "status": "todo"
+        "status": "todo",
+        "priority": "medium"
     }
 
     get_response = client.get("/tasks/3")
@@ -68,14 +70,16 @@ def test_create_task():
     assert get_response.json() == {
         "id": 3,
         "title": "Write paper",
-        "status": "todo"
+        "status": "todo",
+        "priority": "medium"
     }
 
 def test_update_task():
     response = client.patch(
         "/tasks/1",
         json={
-            "status": "done"
+            "status": "done",
+            "priority": "high"
         }
     )
 
@@ -83,7 +87,8 @@ def test_update_task():
     assert response.json() == {
         "id": 1,
         "title": "Read paper",
-        "status": "done"
+        "status": "done",
+        "priority": "high"
     }
 
     get_response = client.get("/tasks/1")
@@ -92,9 +97,10 @@ def test_update_task():
     assert get_response.json() == {
         "id": 1,
         "title": "Read paper",
-        "status": "done"
+        "status": "done",
+        "priority": "high"
     }
-
+ 
 def test_delete_task():
     response = client.delete("/tasks/1")
 
